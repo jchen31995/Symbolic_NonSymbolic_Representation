@@ -27,7 +27,7 @@ def main():
     
     #number of trials would have to be divisible by 4
     trials = 9
-    
+    stimuli=create_stimuli(trials)
     
 
     
@@ -45,16 +45,12 @@ def create_user_prompt():
     return info
 
 #TODO: create list of stimuli
-def create_stimuli():
+def create_stimuli(trials):
+    stimuli = []
     equals_list = generate_equal(trials)
-    print equals_list
-    
     greater_list = generate_greater(trials)
-    print greater_list
-    
     less_list = generate_less(trials)
-    print less_list
-    
+    return stimuli
 
 #generate equal
 def generate_equal(trials):
