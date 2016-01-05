@@ -5,6 +5,7 @@ from psychopy import core, visual, event, gui, parallel
 import subject # for user prompt
 import shuffler # for shuffling stimuli list
 from common import * #for window size and all that good stuff
+import numpy #for generating jitter
 
 from psychopy.iohub import launchHubServer
 import serial
@@ -54,17 +55,17 @@ def main():
     """
     
     #TODO: work out some of the finer details of figuring the numbers out, but I think have most of it
-    #number of trials has to be divisible by 80
+    #number of trials has to be divisible by 72
     num_trials = 12
     if not num_trials%4==0:
         print "Number of trials has to be divisible by 4 to ensure 50%-25%-25% ratio is preserved"
         exit()
     
-    trials = 80
-    #if for some reason you want more than 80 trials (not recommended -- takes much longer to run, also need to ease up on repeats)
+    trials = 72
+    #if for some reason you want more than 72 trials (not recommended -- takes much longer to run, also need to ease up on repeats)
     if num_trials>trials:
-        temp = num_trials/80
-        trials = trials + 80*(num_trials/80)
+        temp = num_trials/72
+        trials = trials + 72*(num_trials/72)
     repeats = 3
     
     keeping_track=[]
@@ -116,8 +117,7 @@ def main():
         #io.clearEvents('serial')
         #event.clearEvents()
         
-        #First Stimulus
-        #sub.inputData(trial_no, 'First Stimulus', stimuli[trial_no][1])
+        #First Stimulus (.5 sec)
         onscr_stim.setText(stimuli[trial_no][0])
         while trial_clock.getTime()<.5:
             onscr_stim.draw()
@@ -125,13 +125,14 @@ def main():
         trial_clock.reset()
         
         #Blank or fixation cross during jitter?
+        #first jitter (1.5-5.5 sec)
         onscr_stim.setText("")
         while trial_clock.getTime()<first_jitter[trial_no]:
             onscr_stim.draw()
             win.flip()
         trial_clock.reset()
         
-        #Second Stimulus
+        #Second Stimulus (.5 sec)
         onscr_stim.setText(stimuli[trial_no][1])
         while trial_clock.getTime()<.5:
             onscr_stim.draw()
@@ -154,12 +155,13 @@ def main():
             if quit:
                 if quit[0].key=='q' or quit[0].key=='escape':
                     exit()
-                
+        """        
             
-            while trial_clock.getTime()<fixation_jitter[trial_no]:
-                fixation_cross.draw()
-                win.flip()
-        """
+        #fixation jitter (1.9-8.4 sec)
+        while trial_clock.getTime()<fixation_jitter[trial_no]:
+            fixation_cross.draw()
+            win.flip()
+        
         
 def create_user_prompt():
     config_data = get_config()
@@ -180,7 +182,7 @@ def create_user_prompt():
 #TODO: create list of stimuli
 def create_stimuli(num_trials,trials,repeats):
     list1=['same','same','greater','less']
-    list2=[0,1,2,3,4,5,6,7,8,9]
+    list2=[1,2,3,4,5,6,7,8,9]
     list3=['symbolic','nonsymbolic']
 
 
@@ -276,25 +278,21 @@ def create_stimuli(num_trials,trials,repeats):
     return stimuli
     
 def generate_jitter(min_duration,max_duration,num_trials, repeats):
-    list1=[.0,.1,.2,.3,.4,.5,.6,.7,.8,.9]
-    list2=[1,2,3,4,5,6,7,8]
-
-    msec = shuffler.Condition(list1, "msec", repeats)
-    sec = shuffler.Condition(list2, "sec", repeats)
-
-    secList = shuffler.MultiShuffler([msec, sec], 80).shuffle()
-
+    list1 = numpy.linspace (1.0,8.9, num = 80)
+    time_list = []
+    for l in list1:
+        time_list.append(float("%.1f"%l))
+    time_list=shuffler.ListAdder(time_list,1).shuffle()
+    
     jitter = []
     counter = 0
-    for time in secList:
-        seconds = getattr(time, "sec")
-        millisecond = getattr(time, "msec")
-        time = seconds + millisecond
+    for time in time_list:
         if time>=min_duration and time<=max_duration:
             counter+=1
             jitter.append(time)
         if counter==num_trials:
             break
+    print jitter
     return jitter
 
 main()
