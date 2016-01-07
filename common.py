@@ -2,8 +2,8 @@
 from psychopy import visual, event, gui
 import os, pickle
 
-background_color = "#000000"
-text_color = (-1, 1, -1)
+background_color = (255,255,255)
+text_color = (0, 0, 0)
 text_height = 18
 screen_size = [640, 480]
 
