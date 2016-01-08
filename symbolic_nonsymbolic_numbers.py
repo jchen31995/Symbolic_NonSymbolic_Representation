@@ -250,35 +250,35 @@ def create_stimuli(num_trials,trials,repeats):
 
     same_or_diff = shuffler.Condition(list1, "samediff", repeats)
     integer = shuffler.Condition(list2, "integer", repeats)
-    format = shuffler.Condition(list3, "format", repeats)
+    numdot = shuffler.Condition(list3, "numdot", repeats)
     stimList = shuffler.MultiShuffler([same_or_diff,integer,format], trials).shuffle()
     
     
     
     samedifflist=[] #equal or not equal (greater/less)
     numlist=[] #stimulus integer
-    formatlist=[] #numeric or dot
+    numdotlist=[] #numeric or dot
 
 
     for stim in stimList:
         same_diff = getattr(stim, "samediff")
         num = getattr(stim, "integer")
-        format = getattr(stim, "format")
+        numdot = getattr(stim, "numdot")
         if same_diff=='same':
             samedifflist.append(same_diff)
             numlist.append(num)
-            formatlist.append(format)
+            numdotlist.append(numdot)
         
         if same_diff=='greater':
             samedifflist.append(same_diff)
             numlist.append(num)
-            formatlist.append(format)
+            numdotlist.append(numdot)
                 
         
         if same_diff=='less':
             samedifflist.append(same_diff)
             numlist.append(num)
-            formatlist.append(format)
+            numdotlist.append(numdot)
         
 
     #stimuli is a list of tuples where (first stimulus, second stimulus)
@@ -296,9 +296,9 @@ def create_stimuli(num_trials,trials,repeats):
     greaterthan=glob.glob("stimuli/*_greaterthan_*.png")
    
     
-    for condition, stim, type in zip(samedifflist,numlist,formatlist):
+    for condition, stim, nd in zip(samedifflist,numlist,numdotlist):
         #equal number of dots
-        if condition=='same' and type =='symbolic':
+        if condition=='same' and nd =='symbolic':
             contains = "_%s_%s_%s_" % (stim,stim,areaperimeter[areaperimeter_counter])
             for e in equalto:
                 if contains in e and e not in used:
@@ -310,13 +310,13 @@ def create_stimuli(num_trials,trials,repeats):
 
 
         #equal numbers
-        if condition=='same' and type =='nonsymbolic':
+        if condition=='same' and nd =='nonsymbolic':
             stimuli.append(["%s" % stim,"%s"% stim])
 
 
         #2nd stimulus greater than 1st
         #generating dot stim
-        if condition=='greater' and type =='symbolic':
+        if condition=='greater' and nd =='symbolic':
             contains = "greaterthan_%s" % (stim)
             ap=areaperimeter[areaperimeter_counter]
             for g in greaterthan:
@@ -328,7 +328,7 @@ def create_stimuli(num_trials,trials,repeats):
                     break
 
         #number stimulus
-        if condition=='greater' and type =='nonsymbolic':
+        if condition=='greater' and nd =='nonsymbolic':
             if stim ==9:
                 stim = random.randrange(0,9)
                 
@@ -343,7 +343,7 @@ def create_stimuli(num_trials,trials,repeats):
 
         #2nd stimulus less than 1st
         #generating dot stim
-        if condition=='less' and type=='symbolic':
+        if condition=='less' and nd=='symbolic':
             contains = "lessthan_%s" % (stim)
             ap=areaperimeter[areaperimeter_counter]
             for l in lessthan:
@@ -356,7 +356,7 @@ def create_stimuli(num_trials,trials,repeats):
 
             
         #generating number stim
-        if condition=='less' and type =='nonsymbolic':
+        if condition=='less' and nd =='nonsymbolic':
             if stim==0:
                 stim = random.randrange(1,10)
                 
@@ -381,6 +381,7 @@ def generate_jitter(min_duration,max_duration,num_trials, repeats):
     
     jitter = []
     counter = 0
+    #because first jitter is between 1.5 and 5.5 while 2nd is between 1.9 and 8.4 sec
     for time in time_list:
         if time>=min_duration and time<=max_duration:
             counter+=1
