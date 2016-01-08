@@ -56,23 +56,27 @@ def main():
     """
     
     #TODO: work out some of the finer details of figuring the numbers out, but I think have most of it
-    #number of trials has to be divisible by 72
-    num_trials = 12
+    
+    num_trials = 84
     if not num_trials%4==0:
         print "Number of trials has to be divisible by 4 to ensure 50%-25%-25% ratio is preserved"
         exit()
     
+    #trials has to be divisible by 72
     trials = 72
     #if for some reason you want more than 72 trials (not recommended -- takes much longer to run, also need to ease up on repeats)
     if num_trials>trials:
         temp = num_trials/72
         trials = trials + 72*(num_trials/72)
-    repeats = 3
+    
+    repeats = 4
     
     keeping_track=[]
     #create stimuli, jitters
     stimuli=create_stimuli(num_trials,trials,repeats)
     print stimuli
+    
+    #generating jitter lists
     first_jitter = generate_jitter(1.5,5.5,num_trials, repeats)
     fixation_jitter = generate_jitter(1.9,8.4,num_trials,repeats)
     for i in range(0,num_trials):
@@ -84,8 +88,6 @@ def main():
             num_or_image.append(0)
         else:
             num_or_image.append(1)
-    print num_or_image
-    
     
     
     
@@ -241,7 +243,6 @@ def create_user_prompt():
 #I think my logic makes sense... maybe someone can check?
 #TODO: create list of stimuli
 def create_stimuli(num_trials,trials,repeats):
-    curr_dir = os.getcwd()
     list1=['same','same','greater','less']
     list2=[1,2,3,4,5,6,7,8,9]
     list3=['symbolic','nonsymbolic']
@@ -254,42 +255,35 @@ def create_stimuli(num_trials,trials,repeats):
     
     
     
-    samedifflist=[]
-    numlist=[]
-    formatlist=[]
-    same = 0
-    greaterthan = 0
-    lessthan = 0
+    samedifflist=[] #equal or not equal (greater/less)
+    numlist=[] #stimulus integer
+    formatlist=[] #numeric or dot
+
+
     for stim in stimList:
         same_diff = getattr(stim, "samediff")
         num = getattr(stim, "integer")
         format = getattr(stim, "format")
         if same_diff=='same':
-            same+=1
-            if not same>num_trials/2:
-                samedifflist.append(same_diff)
-                numlist.append(num)
-                formatlist.append(format)
+            samedifflist.append(same_diff)
+            numlist.append(num)
+            formatlist.append(format)
         
         if same_diff=='greater':
-            greaterthan+=1
-            if not greaterthan>num_trials/4:
-                samedifflist.append(same_diff)
-                numlist.append(num)
-                formatlist.append(format)
+            samedifflist.append(same_diff)
+            numlist.append(num)
+            formatlist.append(format)
                 
         
         if same_diff=='less':
-            lessthan+=1
-            if not lessthan>num_trials/4:
-                samedifflist.append(same_diff)
-                numlist.append(num)
-                formatlist.append(format)
+            samedifflist.append(same_diff)
+            numlist.append(num)
+            formatlist.append(format)
         
 
     #stimuli is a list of tuples where (first stimulus, second stimulus)
     stimuli=[]
-    #png placeholders == png file paths
+    
     areaperimeter = shuffler.ListAdder(['area','perimeter'],(len(numlist)/4)).shuffle()
     areaperimeter_counter = 0
     
@@ -313,26 +307,15 @@ def create_stimuli(num_trials,trials,repeats):
                     areaperimeter_counter+=1
                     used.append(e)
                     break
-            """
-            #generate dots where both equal
-            x=0
-            
-            firststimulus=glob.glob("%s/stimuli/circle__*_equal_%s_%s_%s_S1.png" % (curr_dir,stim,stim,areaperimeter[areaperimeter_counter]))[x]
-            while firststimulus in used:
-                x+=1
-                firststimulus=glob.glob("%s/stimuli/circle__*_equal_%s_%s_%s_S1.png" % (curr_dir,stim,stim,areaperimeter[areaperimeter_counter]))[x]
-            used.append(firststimulus)
-            areaperimeter_counter+=1
-            secondstimulus = firststimulus[:-5] + '2.png'
-            stimuli.append((firststimulus,secondstimulus))
-            """
-            #stimuli.append(("LOL","lol"))
+
+
         #equal numbers
         if condition=='same' and type =='nonsymbolic':
             stimuli.append(["%s" % stim,"%s"% stim])
 
 
-        #greater
+        #2nd stimulus greater than 1st
+        #generating dot stim
         if condition=='greater' and type =='symbolic':
             contains = "greaterthan_%s" % (stim)
             ap=areaperimeter[areaperimeter_counter]
@@ -343,20 +326,8 @@ def create_stimuli(num_trials,trials,repeats):
                     areaperimeter_counter+=1
                     used.append(g)
                     break
-            """
-            #generate dots where 2nd stimulus greater
-            x=0
-            #print glob.glob("%s/stimuli/circle__*_greaterthan_%s_*_%s_S1.png" % (curr_dir,stim,areaperimeter[areaperimeter_counter]))
-            firststimulus=glob.glob("%s/stimuli/circle__*_greaterthan_%s_*_%s_S1.png" % (curr_dir,stim,areaperimeter[areaperimeter_counter]))[x]
-            while firststimulus in used:
-                x+=1
-                firststimulus=glob.glob("%s/stimuli/circle__*_greaterthan_%s_*_%s_S1.png" % (curr_dir,stim,areaperimeter[areaperimeter_counter]))[x]
-            used.append(firststimulus)
-            areaperimeter_counter+=1
-            secondstimulus = firststimulus[:-5] + '2.png'
-            stimuli.append((firststimulus,secondstimulus))
-            """
-        #2nd stimulus greater than 1st
+
+        #number stimulus
         if condition=='greater' and type =='nonsymbolic':
             if stim ==9:
                 stim = random.randrange(0,9)
@@ -370,7 +341,8 @@ def create_stimuli(num_trials,trials,repeats):
             stimuli.append(("%s" % stim, "%s" % temp))
 
 
-        #less
+        #2nd stimulus less than 1st
+        #generating dot stim
         if condition=='less' and type=='symbolic':
             contains = "lessthan_%s" % (stim)
             ap=areaperimeter[areaperimeter_counter]
@@ -381,19 +353,9 @@ def create_stimuli(num_trials,trials,repeats):
                     areaperimeter_counter+=1
                     used.append(l)
                     break
-            """
-            x=0
-            firststimulus=glob.glob("%s/stimuli/circle__*_lessthan_%s_*_%s_S1.png" % (curr_dir,stim,areaperimeter[areaperimeter_counter]))[x]
-            while firststimulus in used:
-                x+=1
-                firststimulus=glob.glob("%s/stimuli/circle__*_lessthan_%s_*_%s_S1.png" % (curr_dir,stim,areaperimeter[areaperimeter_counter]))[x]
-            used.append(firststimulus)
-            areaperimeter_counter+=1
-            secondstimulus = firststimulus[:-5] + '2.png'
-            stimuli.append((firststimulus,secondstimulus))
-            """
+
             
-        #2nd stimulus less than 1st
+        #generating number stim
         if condition=='less' and type =='nonsymbolic':
             if stim==0:
                 stim = random.randrange(1,10)
