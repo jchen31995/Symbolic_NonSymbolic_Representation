@@ -57,14 +57,18 @@ def main():
     
     #TODO: work out some of the finer details of figuring the numbers out, but I think have most of it
     
-    num_trials = 84
+    #num_trials has to be divisible by 36 (divisible by 9:all 9 numbers have to be shown and divisble by 4:50%-25%-25%)
+    num_trials = 36
+    if not num_trials%9==0:
+        print "Each number must be shown. Number of trials has to be divisible by 9"
+        exit()
     if not num_trials%4==0:
         print "Number of trials has to be divisible by 4 to ensure 50%-25%-25% ratio is preserved"
         exit()
     
     #trials has to be divisible by 72
     trials = 72
-    #if for some reason you want more than 72 trials (not recommended -- takes much longer to run, also need to ease up on repeats)
+    #if for some reason you want more than 72 trials (not recommended -- takes much longer to run, also need to ease up on repeats[line 76])
     if num_trials>trials:
         temp = num_trials/72
         trials = trials + 72*(num_trials/72)
@@ -73,8 +77,10 @@ def main():
     
     keeping_track=[]
     #create stimuli, jitters
-    stimuli=create_stimuli(num_trials,trials,repeats)
+    samedifflist,stimuli=create_stimuli(num_trials,trials,repeats)
+    print samedifflist
     print stimuli
+    print len(stimuli)
     
     #generating jitter lists
     first_jitter = generate_jitter(1.5,5.5,num_trials, repeats)
@@ -125,13 +131,15 @@ def main():
     trial_clock.reset()
     
     #iterating through every stimuli
-    for trial_no,display in zip(keeping_track,num_or_image):
+    for condition,trial_no,display in zip(samedifflist,keeping_track,num_or_image):
+        sub.inputData(trial_no+1, 'Condition', condition)
         if display==0:
             #io.clearEvents('serial')
             #event.clearEvents()
             
             #First Stimulus (.5 sec)
             onscr_stim.setText(stimuli[trial_no][0])
+            sub.inputData(trial_no+1, '1st Stimulus', stimuli[trial_no][0])
             while trial_clock.getTime()<.5:
                 onscr_stim.draw()
                 win.flip()
@@ -140,6 +148,7 @@ def main():
             #Blank or fixation cross during jitter?
             #first jitter (1.5-5.5 sec)
             onscr_stim.setText("")
+            sub.inputData(trial_no+1, 'First Jitter', first_jitter[trial_no])
             while trial_clock.getTime()<first_jitter[trial_no]:
                 onscr_stim.draw()
                 win.flip()
@@ -147,6 +156,7 @@ def main():
             
             #Second Stimulus (.5 sec)
             onscr_stim.setText(stimuli[trial_no][1])
+            sub.inputData(trial_no+1, '2nd Stimulus', stimuli[trial_no][1])
             while trial_clock.getTime()<.5:
                 onscr_stim.draw()
                 win.flip()
@@ -171,14 +181,18 @@ def main():
             """        
                 
             #fixation jitter (1.9-8.4 sec)
+            sub.inputData(trial_no+1, 'Fixation Jitter', fixation_jitter[trial_no])
             while trial_clock.getTime()<fixation_jitter[trial_no]:
                 fixation_cross.draw()
                 win.flip()
+           
         else:
             #io.clearEvents('serial')
             #event.clearEvents()
             
             #First Stimulus (.5 sec)
+            sub.inputData(trial_no+1, '1st Stimulus', stimuli[trial_no][0][18])
+            sub.inputData(trial_no+1, '1st Image', stimuli[trial_no][0])
             dot_stim = visual.ImageStim(win, stimuli[trial_no][0], pos=[0,0])
             while trial_clock.getTime()<.5:
                 dot_stim.draw()
@@ -188,12 +202,15 @@ def main():
             #Blank or fixation cross during jitter?
             #first jitter (1.5-5.5 sec)
             onscr_stim.setText("")
+            sub.inputData(trial_no+1, 'First Jitter', first_jitter[trial_no])
             while trial_clock.getTime()<first_jitter[trial_no]:
                 onscr_stim.draw()
                 win.flip()
             trial_clock.reset()
             
             #Second Stimulus (.5 sec)
+            sub.inputData(trial_no+1, '2nd Stimulus', stimuli[trial_no][1][28])
+            sub.inputData(trial_no+1, '2nd Image', stimuli[trial_no][1])
             dot_stim = visual.ImageStim(win, stimuli[trial_no][1], pos=[0,0])
             while trial_clock.getTime()<.5:
                 dot_stim.draw()
@@ -206,7 +223,7 @@ def main():
             while trial_clock.getTime()<2.5:
                     #while loop keeps going until we get input
                 key = srbox.getEvents()
-                quit = kb.getEvents()
+                quit = kb.getEvents() 
                 press_time = clock.getTime()
                 if key:
                     press_time = clock.getTime()
@@ -219,9 +236,12 @@ def main():
             """        
                 
             #fixation jitter (1.9-8.4 sec)
+            sub.inputData(trial_no+1, 'Fixation Jitter', fixation_jitter[trial_no])
             while trial_clock.getTime()<fixation_jitter[trial_no]:
                 fixation_cross.draw()
                 win.flip()
+    sub.printData()
+    print clock.getTime()
         
 
 
@@ -238,9 +258,18 @@ def create_user_prompt():
     info = infoGUI(info)
     return info
 
-#Right now we get 80 stimuli minimum, but what if we wanted fewer/more? How do we preserve the 50%-25%-25% and 50-50 symbols/nonsymbols ratios?
-#Only requirement really should be that it's divisible by 4, not 80
-#I think my logic makes sense... maybe someone can check?
+
+
+def check_stim_list(numlist,samedifflist):
+    for num,sd, in zip(numlist,samedifflist):
+        if (num==1 and sd=='less') or (num==9 and sd=='greater'):
+            return False
+    return True
+    
+    
+
+
+#Requirement that num_trials divisible by 36 (all 9 numbers must be seen in one block and 4 to preserve 50-25-25)
 #TODO: create list of stimuli
 def create_stimuli(num_trials,trials,repeats):
     list1=['same','same','greater','less']
@@ -248,58 +277,35 @@ def create_stimuli(num_trials,trials,repeats):
     list3=['symbolic','nonsymbolic']
 
 
-    same_or_diff = shuffler.Condition(list1, "samediff", repeats)
-    integer = shuffler.Condition(list2, "integer", repeats)
-    numdot = shuffler.Condition(list3, "numdot", repeats)
-    stimList = shuffler.MultiShuffler([same_or_diff,integer,format], trials).shuffle()
+    samedifflist = shuffler.ListAdder(list1,num_trials/4).shuffle()
+    numlist = shuffler.ListAdder(list2,num_trials/9).shuffle()
+    numdotlist = shuffler.ListAdder(list3,num_trials/2).shuffle()
     
-    
-    
-    samedifflist=[] #equal or not equal (greater/less)
-    numlist=[] #stimulus integer
-    numdotlist=[] #numeric or dot
-
-
-    for stim in stimList:
-        same_diff = getattr(stim, "samediff")
-        num = getattr(stim, "integer")
-        numdot = getattr(stim, "numdot")
-        if same_diff=='same':
-            samedifflist.append(same_diff)
-            numlist.append(num)
-            numdotlist.append(numdot)
-        
-        if same_diff=='greater':
-            samedifflist.append(same_diff)
-            numlist.append(num)
-            numdotlist.append(numdot)
-                
-        
-        if same_diff=='less':
-            samedifflist.append(same_diff)
-            numlist.append(num)
-            numdotlist.append(numdot)
-        
+    #check to see 1+less and 9+greater aren't paired together
+    while not check_stim_list(numlist,samedifflist):
+        samedifflist = shuffler.ListAdder(list1,num_trials/4).shuffle()
+        numlist = shuffler.ListAdder(list2,num_trials/9).shuffle()
+        numdotlist = shuffler.ListAdder(list3,num_trials/2).shuffle()
+        check_stim_list(numlist, samedifflist)
 
     #stimuli is a list of tuples where (first stimulus, second stimulus)
     stimuli=[]
     
-    areaperimeter = shuffler.ListAdder(['area','perimeter'],(len(numlist)/4)).shuffle()
+    areaperimeter = shuffler.ListAdder(['area','perimeter'],(num_trials/4)).shuffle()
     areaperimeter_counter = 0
     
     #used stimli list
     used=[]
     
     #3 lists to store every png's for each condition
-    equalto= glob.glob("stimuli/*_equal_*.png")
-    lessthan=glob.glob("stimuli/*_lessthan_*.png")
-    greaterthan=glob.glob("stimuli/*_greaterthan_*.png")
-   
+    equalto= glob.glob("stimuli/*_equalto_*.png")
+    lessthan=glob.glob("stimuli/*_lessthn_*.png")
+    greaterthan=glob.glob("stimuli/*_greater_*.png")
     
     for condition, stim, nd in zip(samedifflist,numlist,numdotlist):
         #equal number of dots
         if condition=='same' and nd =='symbolic':
-            contains = "_%s_%s_%s_" % (stim,stim,areaperimeter[areaperimeter_counter])
+            contains = "_%s_equalto_%s_%s_" % (stim,stim,areaperimeter[areaperimeter_counter])
             for e in equalto:
                 if contains in e and e not in used:
                     temp = e[:-5] + '2.png'
@@ -317,7 +323,7 @@ def create_stimuli(num_trials,trials,repeats):
         #2nd stimulus greater than 1st
         #generating dot stim
         if condition=='greater' and nd =='symbolic':
-            contains = "greaterthan_%s" % (stim)
+            contains = "%s_greater" % (stim)
             ap=areaperimeter[areaperimeter_counter]
             for g in greaterthan:
                 if contains in g and g not in used and ap in g :
@@ -338,13 +344,13 @@ def create_stimuli(num_trials,trials,repeats):
             if not temp>stim:
                 print ("Second stimulus was not greater than first stimulus")
                 exit()
-            stimuli.append(("%s" % stim, "%s" % temp))
+            stimuli.append(["%s" % stim, "%s" % temp])
 
 
         #2nd stimulus less than 1st
         #generating dot stim
         if condition=='less' and nd=='symbolic':
-            contains = "lessthan_%s" % (stim)
+            contains = "%s_lessthn" % (stim)
             ap=areaperimeter[areaperimeter_counter]
             for l in lessthan:
                 if contains in l and l not in used and ap in l:
@@ -369,8 +375,10 @@ def create_stimuli(num_trials,trials,repeats):
                 exit()
 
 
-            stimuli.append(("%s" % stim, "%s" % temp))
-    return stimuli
+            stimuli.append(["%s" % stim, "%s" % temp])
+        if len(stimuli) == num_trials:
+            break
+    return samedifflist,stimuli
     
 def generate_jitter(min_duration,max_duration,num_trials, repeats):
     list1 = numpy.linspace (1.0,8.9, num = 80)
