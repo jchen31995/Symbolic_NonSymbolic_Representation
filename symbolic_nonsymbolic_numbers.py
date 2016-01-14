@@ -10,20 +10,18 @@ import numpy #for generating jitter
 
 from psychopy.iohub import launchHubServer
 import serial
+import trial #for stim creation
 
 
-#LEFT TO DO: Appending [1st_Stim, Jitter, 2nd_Stim, RT, Fixation_Jitter] to Excel and exporting data to Excel
+#LEFT TO DO: Creating 2nd Stimuli
+#            Checking timing
 #            Setting up SR Box
-#            Generating Dot Stimulus png's
-#            Adjusting Stimulus Size
+#            Debugging Dot Generation for 1-1
+#            Adjusting Stimulus/Text Size/Color
 
 def main():
-    
-    #if you want to trigger scanner
+    #if you want to trigger scanner, getting conditions
     info = create_user_prompt()
-    
-    
-    #getting conditions
     trigger = info['Trigger fMRI']
     if trigger in ['yes', 'y']:
         trigger=True
@@ -33,30 +31,45 @@ def main():
     practice = False
     if info['Practice'] == 'yes':
         practice = True
-    """
-    # start the iohub server and get the keyboard and PST box devices
-    io = launchHubServer(**iohub_config)
-    kb = io.devices.keyboard
-    srbox = io.devices.serial
-
+    
+    input_method = info['Input']
+    
+    #UNCOMMENT TO TEST SRBOX AND KEYBOARD
+    #start the iohub server and get the keyboard and PST box devices
+    #iohub_config = {'serial.Serial': dict(name='serial', port='COM4', baud=19200,event_parser = dict(byte_diff=True))}
+    #io = launchHubServer(**iohub_config)
+    
+    #srbox = io.devices.serial
+    if input_method=='srbox':
+        #for participant use
+        srbox=io.devices.serial
+        srbox.enableEventReporting(True)
+    
+        # Source: https://psychtoolbox-3.googlecode.com/svn/beta/Psychtoolbox/PsychHardware/CMUBox.m
+        print('Switching response box to streaming mode and switching on lamp #3...')
+        srbox.write(chr(numpy.uint8(128+32+64+4)))
+        core.wait(0.25)
+        print('...done.')
+        
+        
+        #for researcher use
+        kb = io.devices.keyboard
+        kb.enableEventReporting(True)
+    
     # initializes data collection for PST box and keyboard
-    kb.enableEventReporting(True)
-    srbox.enableEventReporting(True)
+    if input_method=='kb':
+        kb = io.devices.keyboard
+        kb.enableEventReporting(True)
 
-    # Source: https://psychtoolbox-3.googlecode.com/svn/beta/Psychtoolbox/PsychHardware/CMUBox.m
-    print('Switching response box to streaming mode and switching on lamp #3...')
-    srbox.write(chr(numpy.uint8(128+32+64+4)))
-    core.wait(0.25)
-    print('...done.')
+
+
     
     #serial adapter
     if trigger:
         ser = serial.Serial(port=7)
         ser.write(chr(numpy.uint8(128+32+64+1))) 
-    """
     
-    #TODO: work out some of the finer details of figuring the numbers out, but I think have most of it
-    
+
     #num_trials has to be divisible by 36 (divisible by 9:all 9 numbers have to be shown and divisble by 4:50%-25%-25%)
     num_trials = 36
     if not num_trials%9==0:
@@ -72,33 +85,11 @@ def main():
     if num_trials>trials:
         temp = num_trials/72
         trials = trials + 72*(num_trials/72)
-    
     repeats = 4
     
-    keeping_track=[]
-    #create stimuli, jitters
-    samedifflist,stimuli=create_stimuli(num_trials,trials,repeats)
-    print samedifflist
-    print stimuli
-    print len(stimuli)
-    
-    #generating jitter lists
-    first_jitter = generate_jitter(1.5,5.5,num_trials, repeats)
-    fixation_jitter = generate_jitter(1.9,8.4,num_trials,repeats)
-    for i in range(0,num_trials):
-        keeping_track.append(i)
-    num_or_image=[]
-    for s in stimuli:
-        #if it's a number
-        if len(s[0])==1:
-            num_or_image.append(0)
-        else:
-            num_or_image.append(1)
-    
-    
-    
-    
-    
+    #create stimuli
+    trial_list=create_stimuli(num_trials,trials,repeats)
+
     ###CREATE WINDOW
     #win = visual.Window(size=screen_size, units='pix', fullscr=True, rgb = background_color)
     win = visual.Window(size=screen_size, units='pix', rgb = background_color)
@@ -107,10 +98,12 @@ def main():
     mouse = event.Mouse(visible=False, newPos=None, win=win)
     
     ###CREATE STIMULI
-    onscr_stim = visual.TextStim(win, "", height =text_height, pos=[0,0], color=text_color, font='Courier New', bold=True)
-    #dot_stim = visual.ImageStim(win, "", pos=[0,0])
+    onscr_num_stim = visual.TextStim(win, "", height =text_height, pos=[0,0], color=text_color, font='Courier New', bold=True)
+    onscr_dot_stim = visual.ImageStim(win, "blank.png", pos=[0,0])
     fixation_cross = visual.TextStim(win, "+", height = text_height, pos=[0,0], color=text_color, font='Courier New', bold=True)
-
+    onscr_jitter = visual.TextStim(win, "", height =text_height, pos=[0,0], color=text_color, font='Courier New', bold=True)
+    
+    
     #instructions the patient will see
     msg = Message(win, color=text_color, height=text_height)
     msg.send("You are about to see two stimuli.\n\nThe second stimuli will either be greater than, less than, or equal to the first one.\n\nIf the stimuli are equal, press the button with your pointer finger.  If the stimuli are not, press the button with your middle finger.", wait=True)
@@ -128,128 +121,81 @@ def main():
     clock = core.Clock()
     clock.reset()
     trial_clock = core.Clock()
-    trial_clock.reset()
     
     #iterating through every stimuli
-    for condition,trial_no,display in zip(samedifflist,keeping_track,num_or_image):
-        sub.inputData(trial_no+1, 'Condition', condition)
-        if display==0:
-            #io.clearEvents('serial')
-            #event.clearEvents()
-            
-            #First Stimulus (.5 sec)
-            onscr_stim.setText(stimuli[trial_no][0])
-            sub.inputData(trial_no+1, '1st Stimulus', stimuli[trial_no][0])
-            while trial_clock.getTime()<.5:
-                onscr_stim.draw()
-                win.flip()
+    stim_dur = .5
+    input_dur = 2.5
+    for trial in trial_list:
+        #io.clearEvents('serial')
+        #event.clearEvents()
+        
+        #for checking how accurate the time is to expected -- should we output to CSV?
+        stopwatch_times=[]
+        if trial.symbol=='nonsymbolic':
             trial_clock.reset()
+            #First Stimulus (.5 sec)
+            timing= draw_numStimulus(onscr_num_stim,win,trial.first_stim,trial_clock,stim_dur)
+            stopwatch_times.append(timing)
             
             #Blank or fixation cross during jitter?
             #first jitter (1.5-5.5 sec)
-            onscr_stim.setText("")
-            sub.inputData(trial_no+1, 'First Jitter', first_jitter[trial_no])
-            while trial_clock.getTime()<first_jitter[trial_no]:
-                onscr_stim.draw()
-                win.flip()
             trial_clock.reset()
+            timing = draw_jitter(onscr_jitter, trial_clock, win,trial.first_jitter)
+            stopwatch_times.append(timing)
             
             #Second Stimulus (.5 sec)
-            onscr_stim.setText(stimuli[trial_no][1])
-            sub.inputData(trial_no+1, '2nd Stimulus', stimuli[trial_no][1])
-            while trial_clock.getTime()<.5:
-                onscr_stim.draw()
-                win.flip()
             trial_clock.reset()
+            timing= draw_numStimulus(onscr_num_stim,win,trial.second_stim,trial_clock,stim_dur)
+            stopwatch_times.append(timing)
             
             #TODO: blank screen for 2500 msec ==2.5 sec or until subject responds
-            #Yeah, this is the SRbox code for it
-            """
-            while trial_clock.getTime()<2.5:
-                    #while loop keeps going until we get input
-                key = srbox.getEvents()
-                quit = kb.getEvents()
-                press_time = clock.getTime()
-                if key:
-                    press_time = clock.getTime()
-                    RT = press_time - start_time
-                    key = key[0].current_byte
-                    break
-                if quit:
-                    if quit[0].key=='q' or quit[0].key=='escape':
-                        exit()
-            """        
+            #get_input(trial_clock, input_method,trial,input_dur)
+
                 
             #fixation jitter (1.9-8.4 sec)
-            sub.inputData(trial_no+1, 'Fixation Jitter', fixation_jitter[trial_no])
-            while trial_clock.getTime()<fixation_jitter[trial_no]:
-                fixation_cross.draw()
-                win.flip()
+            trial_clock.reset()
+            timing = draw_jitter(onscr_jitter, trial_clock, win,trial.fixation_jitter)
+            stopwatch_times.append(timing)
+            print stopwatch_times
+            
+
            
         else:
-            #io.clearEvents('serial')
-            #event.clearEvents()
-            
-            #First Stimulus (.5 sec)
-            sub.inputData(trial_no+1, '1st Stimulus', stimuli[trial_no][0][18])
-            sub.inputData(trial_no+1, '1st Image', stimuli[trial_no][0])
-            dot_stim = visual.ImageStim(win, stimuli[trial_no][0], pos=[0,0])
-            while trial_clock.getTime()<.5:
-                dot_stim.draw()
-                win.flip()
             trial_clock.reset()
+            #First Stimulus (.5 sec)
+            timing= draw_dotStimulus(onscr_dot_stim,win,trial.first_image,trial_clock,stim_dur)
+            stopwatch_times.append(timing)
             
             #Blank or fixation cross during jitter?
             #first jitter (1.5-5.5 sec)
-            onscr_stim.setText("")
-            sub.inputData(trial_no+1, 'First Jitter', first_jitter[trial_no])
-            while trial_clock.getTime()<first_jitter[trial_no]:
-                onscr_stim.draw()
-                win.flip()
             trial_clock.reset()
+            timing = draw_jitter(onscr_jitter, trial_clock, win,trial.first_jitter)
+            stopwatch_times.append(timing)
             
             #Second Stimulus (.5 sec)
-            sub.inputData(trial_no+1, '2nd Stimulus', stimuli[trial_no][1][28])
-            sub.inputData(trial_no+1, '2nd Image', stimuli[trial_no][1])
-            dot_stim = visual.ImageStim(win, stimuli[trial_no][1], pos=[0,0])
-            while trial_clock.getTime()<.5:
-                dot_stim.draw()
-                win.flip()
             trial_clock.reset()
+            timing= draw_dotStimulus(onscr_dot_stim,win,trial.second_image,trial_clock,stim_dur)
+            stopwatch_times.append(timing)
             
             #TODO: blank screen for 2500 msec ==2.5 sec or until subject responds
-            #Yeah, this is the SRbox code for it
-            """
-            while trial_clock.getTime()<2.5:
-                    #while loop keeps going until we get input
-                key = srbox.getEvents()
-                quit = kb.getEvents() 
-                press_time = clock.getTime()
-                if key:
-                    press_time = clock.getTime()
-                    RT = press_time - start_time
-                    key = key[0].current_byte
-                    break
-                if quit:
-                    if quit[0].key=='q' or quit[0].key=='escape':
-                        exit()
-            """        
-                
+            #get_input(trial_clock, input_method,trial,input_dur)
             #fixation jitter (1.9-8.4 sec)
-            sub.inputData(trial_no+1, 'Fixation Jitter', fixation_jitter[trial_no])
-            while trial_clock.getTime()<fixation_jitter[trial_no]:
-                fixation_cross.draw()
-                win.flip()
+            trial_clock.reset()
+            timing = draw_jitter(onscr_jitter, trial_clock, win,trial.fixation_jitter)
+            stopwatch_times.append(timing)
+            print stopwatch_times
+        
+        logtocsv(sub,trial,stopwatch_times)
+        
     sub.printData()
     print clock.getTime()
         
-
 
 def create_user_prompt():
     config_data = get_config()
 
     #creates user prompt
-    info = {'Subject':666, 'scan_id':'?', 'Session':1, 'Trigger fMRI': 'yes','Experiment':'symbols'}
+    info = {'Subject':666, 'scan_id':'?', 'Session':1, 'Trigger fMRI': 'no','Experiment':'symbols', 'Input': 'srbox'}
 
     if config_data:
         for key in config_data.keys():
@@ -258,19 +204,72 @@ def create_user_prompt():
     info = infoGUI(info)
     return info
 
+#draws number stimuli
+def draw_numStimulus(onscr_stim,window,stimulus,clock,stim_dur):
+    onscr_stim.setText(stimulus)
+    while clock.getTime()< stim_dur:
+        onscr_stim.draw()
+        window.flip()
+    return clock.getTime()
 
-
-def check_stim_list(numlist,samedifflist):
-    for num,sd, in zip(numlist,samedifflist):
-        if (num==1 and sd=='less') or (num==9 and sd=='greater'):
-            return False
-    return True
+#draws dot stimuli
+def draw_dotStimulus(dot_stim,window, stimulus, clock, stim_dur):
+    dot_stim .setImage(stimulus)
+    while clock.getTime()<stim_dur:
+        dot_stim.draw()
+        window.flip()
+    return clock.getTime()
     
-    
+#draws jitter 
+def draw_jitter(onscr_jitter, clock, win,jitter_dur):
+    while clock.getTime()<jitter_dur:
+        onscr_jitter.draw()
+        win.flip()
+    return clock.getTime()
 
+
+#gets user input
+def get_input(trial_clock, method,trial,input_dur):
+    input_clock = core.Clock()
+    if method == 'kb':
+        #while loop keeps going until we get input
+        while trial_clock.getTime()<input_dur:        
+            key = kb.getEvents()
+            if key:
+                trial.RT = input_clock.getTime()
+                trial.resp = key[0].current_byte
+                if key == 'q' or key=='escape':
+                    exit()
+                break
+
+    if method == 'srbox':
+        while trial_clock.getTime()<input_dur:        
+            key = srbox.getEvents()
+            quit = kb.getEvents()
+            if key:
+                trial.RT = input_clock.getTime()
+                trial.key = key[0].current_byte
+                break
+            if quit:
+                if quit[0].key=='q' or quit[0].key=='escape':
+                    exit()
+
+
+
+#log current trial to output csv
+def logtocsv(sub,trial,stopwatch_times):
+    sub.inputData(trial.trial_no, '1st Stim', trial.first_stim)
+    sub.inputData(trial.trial_no, '2nd Stim', trial.second_stim)
+    sub.inputData(trial.trial_no, '1st Image', trial.first_image)
+    sub.inputData(trial.trial_no, '2nd Image', trial.second_image)
+    sub.inputData(trial.trial_no, 'condition', trial.condition)
+    sub.inputData(trial.trial_no, 'First jitter', trial.first_jitter)
+    sub.inputData(trial.trial_no, 'Fixation jitter', trial.fixation_jitter)
+    sub.inputData(trial.trial_no, 'RESP', trial.resp)
+    sub.inputData(trial.trial_no, 'CRESP', trial.cresp)
+    sub.inputData(trial.trial_no, 'RT', trial.RT)
 
 #Requirement that num_trials divisible by 36 (all 9 numbers must be seen in one block and 4 to preserve 50-25-25)
-#TODO: create list of stimuli
 def create_stimuli(num_trials,trials,repeats):
     list1=['same','same','greater','less']
     list2=[1,2,3,4,5,6,7,8,9]
@@ -288,6 +287,12 @@ def create_stimuli(num_trials,trials,repeats):
         numdotlist = shuffler.ListAdder(list3,num_trials/2).shuffle()
         check_stim_list(numlist, samedifflist)
 
+    #generating jitter lists
+    first_jitter = generate_jitter(1.5,5.5,num_trials, repeats)
+    fixation_jitter = generate_jitter(1.9,8.4,num_trials,repeats)
+    
+    
+    
     #stimuli is a list of tuples where (first stimulus, second stimulus)
     stimuli=[]
     
@@ -298,87 +303,105 @@ def create_stimuli(num_trials,trials,repeats):
     used=[]
     
     #3 lists to store every png's for each condition
-    equalto= glob.glob("stimuli/*_equalto_*.png")
-    lessthan=glob.glob("stimuli/*_lessthn_*.png")
-    greaterthan=glob.glob("stimuli/*_greater_*.png")
+    equalto= glob.glob("stimuli\*_equalto_*.png")
+    lessthan=glob.glob("stimuli\*_lessthn_*.png")
+    greaterthan=glob.glob("stimuli\*_greater_*.png")
     
-    for condition, stim, nd in zip(samedifflist,numlist,numdotlist):
+    stimuli_list=[]
+    trial_no=1
+    for condition, num, nd,jitter1,jitter2 in zip(samedifflist,numlist,numdotlist,first_jitter,fixation_jitter):
         #equal number of dots
         if condition=='same' and nd =='symbolic':
-            contains = "_%s_equalto_%s_%s_" % (stim,stim,areaperimeter[areaperimeter_counter])
-            for e in equalto:
-                if contains in e and e not in used:
-                    temp = e[:-5] + '2.png'
-                    stimuli.append([e,temp])
+            contains = "_%s_equalto_%s_%s_" % (num,num,areaperimeter[areaperimeter_counter])
+            for image1 in equalto:
+                print image1
+                if contains in image1 and image1 not in used:
+                    image2 = image1[:-5] + '2.png'
+                    stimuli.append([image1,image2])
                     areaperimeter_counter+=1
-                    used.append(e)
+                    used.append(image1)
+                    temp = trial.Trial(trial_no, nd, num, num,image1,image2,condition,jitter1,jitter2, cresp=1)
+                    stimuli_list.append(temp)
                     break
 
 
         #equal numbers
         if condition=='same' and nd =='nonsymbolic':
-            stimuli.append(["%s" % stim,"%s"% stim])
-
+            stimuli.append(["%s" % num,"%s"% num])
+            temp = trial.Trial(trial_no, nd, num,num,condition=condition, first_jitter=jitter1,fixation_jitter=jitter2, cresp=1)
+            stimuli_list.append(temp)
 
         #2nd stimulus greater than 1st
         #generating dot stim
         if condition=='greater' and nd =='symbolic':
-            contains = "%s_greater" % (stim)
+            contains = "%s_greater" % (num)
             ap=areaperimeter[areaperimeter_counter]
-            for g in greaterthan:
-                if contains in g and g not in used and ap in g :
-                    temp = g[:-5] + '2.png'
-                    stimuli.append([g,temp])
+            for image1 in greaterthan:
+                if contains in image1 and image1 not in used and ap in image1 :
+                    image2 = image1[:-5] + '2.png'
+                    stimuli.append([image1,image2])
                     areaperimeter_counter+=1
-                    used.append(g)
+                    used.append(image1)
+                    temp = trial.Trial(trial_no, nd, num, int(image2[28]), image1, image2, condition, jitter1, jitter2,0)
+                    stimuli_list.append(temp)
                     break
 
         #number stimulus
         if condition=='greater' and nd =='nonsymbolic':
-            if stim ==9:
-                stim = random.randrange(0,9)
+            if num ==9:
+                num = random.randrange(0,9)
                 
-            temp = random.randrange(stim+1,10)
+            num2 = random.randrange(num+1,10)
 
             #if for some reason if it doesnt work
-            if not temp>stim:
+            if not num2>num:
                 print ("Second stimulus was not greater than first stimulus")
                 exit()
-            stimuli.append(["%s" % stim, "%s" % temp])
+            stimuli.append(["%s" % num, "%s" % num2])
+            temp = trial.Trial(trial_no, nd, num, num2, condition=condition,first_jitter=jitter1,fixation_jitter=jitter2, cresp=0)
+            stimuli_list.append(temp)
 
 
         #2nd stimulus less than 1st
         #generating dot stim
         if condition=='less' and nd=='symbolic':
-            contains = "%s_lessthn" % (stim)
+            contains = "%s_lessthn" % (num)
             ap=areaperimeter[areaperimeter_counter]
-            for l in lessthan:
-                if contains in l and l not in used and ap in l:
-                    temp = l[:-5] + '2.png'
-                    stimuli.append([l,temp])
+            for image1 in lessthan:
+                if contains in image1 and image1 not in used and ap in image1:
+                    image2 = image1[:-5] + '2.png'
+                    stimuli.append([image1,image2])
                     areaperimeter_counter+=1
-                    used.append(l)
+                    used.append(image1)
+                    temp = trial.Trial(trial_no, nd, num, int(image2[28]), image1, image2, condition, jitter1, jitter2, 0)
+                    stimuli_list.append(temp)
                     break
 
             
         #generating number stim
         if condition=='less' and nd =='nonsymbolic':
-            if stim==0:
-                stim = random.randrange(1,10)
+            if num==0:
+                num = random.randrange(1,10)
                 
-            temp = random.randrange (0,stim)
+            num2 = random.randrange (0,num)
             
             
             #if for some reason if it doesnt work
-            if not temp<stim:
+            if not num2<num:
                 print ("Second stimulus was not less than first stimulus")
                 exit()
 
 
-            stimuli.append(["%s" % stim, "%s" % temp])
+            stimuli.append(["%s" % num, "%s" % num2])
+            temp = trial.Trial(trial_no, nd, num, num2, condition=condition, first_jitter=jitter1, fixation_jitter=jitter2, cresp=0)
+            stimuli_list.append(temp)
         if len(stimuli) == num_trials:
             break
-    return samedifflist,stimuli
+        
+        trial_no+=1
+    for i in stimuli_list:
+        print i.first_image
+    return stimuli_list
     
 def generate_jitter(min_duration,max_duration,num_trials, repeats):
     list1 = numpy.linspace (1.0,8.9, num = 80)
@@ -397,5 +420,14 @@ def generate_jitter(min_duration,max_duration,num_trials, repeats):
         if counter==num_trials:
             break
     return jitter
+
+def check_stim_list(numlist,samedifflist):
+    for num,sd, in zip(numlist,samedifflist):
+        if (num==1 and sd=='less') or (num==9 and sd=='greater'):
+            return False
+    return True
+
+
+
 
 main()
