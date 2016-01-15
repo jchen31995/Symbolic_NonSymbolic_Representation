@@ -7,4 +7,6 @@ Creating_Dot_Stimuli.py - creates the dot png files (requires ShapeMaster.py)
 Sample Output File - 666_symbolic_1__14_Jan_16_02_45AM
 
 
+
+
 Download a PsychoPy standalone distro for your computers.  http://www.psychopy.org/

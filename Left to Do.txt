@@ -1,0 +1,6 @@
+- debug ShapeMaster.py
+- mixed condition (dot/num or num/dot) 72 trials -> 108
+- figure out what to do with actual stim timing --> design choice
+- make it easier to avoid srbox/kb uncommenting/commenting
+- 2 border cases (1+less and 9+greater)
+- figure out better method to grab image path

@@ -2,9 +2,10 @@
 from psychopy import visual, event, gui
 import os, pickle
 
-background_color = (255,255,255)
-text_color = (0, 0, 0)
-text_height = 18
+background_color = "#000000"
+text_color = 'white'
+text_height = 25
+stim_height =50
 screen_size = [640, 480]
 
 def get_config():
